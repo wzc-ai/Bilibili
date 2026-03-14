@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B站数据工具箱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Chakra+Petch:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════ RESET & VARS ═══════════════ */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#07070e;--bg2:#0d0d1a;--card:rgba(14,14,28,.72);--card-hover:rgba(22,22,44,.85);
+  --border:rgba(255,255,255,.06);--border-hover:rgba(251,114,153,.25);
+  --pink:#FB7299;--pink-dim:rgba(251,114,153,.15);--pink-glow:rgba(251,114,153,.4);
+  --cyan:#00E5FF;--cyan-dim:rgba(0,229,255,.12);--cyan-glow:rgba(0,229,255,.35);
+  --amber:#FFD54F;--green:#69F0AE;--red:#FF5252;
+  --text:#E0E0F0;--text2:#8888AA;--text3:#555570;
+  --sidebar-w:72px;--header-h:56px;
+  --font-display:'Audiowide',sans-serif;
+  --font-ui:'Chakra Petch','Noto Sans SC',sans-serif;
+  --font-body:'Noto Sans SC',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+html{font-size:14px;scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--font-body);
+  min-height:100vh;overflow-x:hidden;
+}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--pink-dim);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--pink)}
+
+/* ═══════════════ ANIMATED BG ═══════════════ */
+#grid-bg{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    linear-gradient(rgba(251,114,153,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(251,114,153,.03) 1px,transparent 1px);
+  background-size:60px 60px;
+  animation:gridPulse 8s ease-in-out infinite alternate;
+}
+@keyframes gridPulse{0%{opacity:.4}100%{opacity:.8}}
+#glow-orb{
+  position:fixed;width:600px;height:600px;border-radius:50%;
+  background:radial-gradient(circle,rgba(251,114,153,.06),transparent 70%);
+  top:-200px;right:-150px;z-index:0;pointer-events:none;
+  animation:orbFloat 12s ease-in-out infinite alternate;
+}
+#glow-orb2{
+  position:fixed;width:500px;height:500px;border-radius:50%;
+  background:radial-gradient(circle,rgba(0,229,255,.04),transparent 70%);
+  bottom:-200px;left:-100px;z-index:0;pointer-events:none;
+  animation:orbFloat 15s ease-in-out infinite alternate-reverse;
+}
+@keyframes orbFloat{0%{transform:translate(0,0)}100%{transform:translate(40px,30px)}}
+
+/* ═══════════════ SIDEBAR ═══════════════ */
+.sidebar{
+  position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);
+  background:rgba(10,10,20,.92);backdrop-filter:blur(20px);
+  border-right:1px solid var(--border);z-index:100;
+  display:flex;flex-direction:column;align-items:center;padding:12px 0;
+}
+.sidebar .logo{
+  width:44px;height:44px;border-radius:12px;
+  background:linear-gradient(135deg,var(--pink),#d44a7a);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-display);font-size:18px;color:#fff;
+  margin-bottom:24px;box-shadow:0 4px 20px var(--pink-glow);
+  cursor:default;letter-spacing:-1px;
+}
+.sidebar nav{display:flex;flex-direction:column;gap:6px;flex:1}
+.sidebar nav button{
+  width:48px;height:48px;border-radius:14px;border:none;cursor:pointer;
+  background:transparent;color:var(--text3);
+  display:flex;align-items:center;justify-content:center;
+  transition:all .25s var(--ease);position:relative;
+}
+.sidebar nav button svg{width:22px;height:22px;stroke-width:1.8}
+.sidebar nav button:hover{color:var(--text);background:var(--pink-dim)}
+.sidebar nav button.active{
+  color:var(--pink);background:var(--pink-dim);
+  box-shadow:0 0 20px rgba(251,114,153,.15);
+}
+.sidebar nav button.active::before{
+  content:'';position:absolute;left:-12px;top:50%;transform:translateY(-50%);
+  width:3px;height:20px;border-radius:0 3px 3px 0;background:var(--pink);
+}
+.sidebar nav button .tip{
+  position:absolute;left:calc(100% + 12px);
+  background:rgba(20,20,40,.95);color:var(--text);
+  padding:6px 12px;border-radius:8px;font-size:12px;white-space:nowrap;
+  font-family:var(--font-ui);pointer-events:none;
+  opacity:0;transform:translateX(-6px);transition:all .2s var(--ease);
+  border:1px solid var(--border);
+}
+.sidebar nav button:hover .tip{opacity:1;transform:translateX(0)}
+
+/* ═══════════════ HEADER ═══════════════ */
+.header{
+  position:fixed;top:0;left:var(--sidebar-w);right:0;height:var(--header-h);
+  background:rgba(10,10,20,.8);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);z-index:90;
+  display:flex;align-items:center;padding:0 28px;gap:16px;
+}
+.header h1{
+  font-family:var(--font-display);font-size:15px;letter-spacing:2px;
+  background:linear-gradient(90deg,var(--pink),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.header .sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.header .section-title{
+  font-family:var(--font-ui);font-size:13px;color:var(--text2);font-weight:600;
+}
+.header .spacer{flex:1}
+.header .clock{font-family:var(--font-mono);font-size:12px;color:var(--text3)}
+
+/* ═══════════════ MAIN ═══════════════ */
+.main{
+  margin-left:var(--sidebar-w);margin-top:var(--header-h);
+  padding:28px;min-height:calc(100vh - var(--header-h));
+  position:relative;z-index:1;
+}
+.section{display:none;animation:fadeUp .4s var(--ease) forwards}
+.section.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+/* ═══════════════ CARDS ═══════════════ */
+.card{
+  background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:24px;backdrop-filter:blur(12px);
+  transition:all .3s var(--ease);
+}
+.card:hover{background:var(--card-hover);border-color:var(--border-hover)}
+.card-header{
+  display:flex;align-items:center;gap:10px;margin-bottom:18px;
+}
+.card-header .icon{
+  width:36px;height:36px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+}
+.card-header h3{font-family:var(--font-ui);font-size:15px;font-weight:700}
+.card-header .badge{
+  margin-left:auto;font-family:var(--font-mono);font-size:11px;
+  padding:3px 10px;border-radius:20px;
+}
+
+/* ═══════════════ FORMS ═══════════════ */
+.input-row{display:flex;gap:10px;margin-bottom:16px;align-items:stretch}
+.input-wrap{
+  flex:1;position:relative;
+}
+.input-wrap input{
+  width:100%;height:44px;background:rgba(255,255,255,.04);
+  border:1px solid var(--border);border-radius:10px;
+  padding:0 16px;color:var(--text);font-family:var(--font-body);font-size:14px;
+  transition:all .25s var(--ease);outline:none;
+}
+.input-wrap input::placeholder{color:var(--text3)}
+.input-wrap input:focus{border-color:var(--pink);box-shadow:0 0 0 3px var(--pink-dim)}
+.input-wrap label{
+  position:absolute;top:-8px;left:12px;
+  font-size:10px;color:var(--text3);background:var(--bg2);padding:0 6px;
+  font-family:var(--font-ui);text-transform:uppercase;letter-spacing:1px;
+}
+.btn{
+  height:44px;padding:0 24px;border-radius:10px;border:none;cursor:pointer;
+  font-family:var(--font-ui);font-weight:600;font-size:13px;
+  display:inline-flex;align-items:center;gap:8px;
+  transition:all .25s var(--ease);white-space:nowrap;
+}
+.btn-pink{
+  background:linear-gradient(135deg,var(--pink),#d44a7a);color:#fff;
+  box-shadow:0 4px 16px rgba(251,114,153,.3);
+}
+.btn-pink:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(251,114,153,.45)}
+.btn-pink:active{transform:translateY(0)}
+.btn-ghost{background:rgba(255,255,255,.05);color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:rgba(255,255,255,.08);color:var(--text);border-color:var(--border-hover)}
+.btn-cyan{background:linear-gradient(135deg,var(--cyan),#00a0b8);color:#000;font-weight:700}
+.btn-cyan:hover{transform:translateY(-2px);box-shadow:0 6px 20px var(--cyan-glow)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+select.styled{
+  height:44px;padding:0 12px;border-radius:10px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  color:var(--text);font-family:var(--font-body);font-size:13px;
+  outline:none;cursor:pointer;
+}
+select.styled:focus{border-color:var(--pink)}
+
+/* ═══════════════ STATS ROW ═══════════════ */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:16px 18px;text-align:center;
+}
+.stat-card .val{
+  font-family:var(--font-mono);font-size:26px;font-weight:700;
+  background:linear-gradient(135deg,var(--pink),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.stat-card .label{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--font-ui)}
+
+/* ═══════════════ VIDEO GRID ═══════════════ */
+.video-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.video-card{
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  overflow:hidden;cursor:pointer;transition:all .3s var(--ease);
+}
+.video-card:hover{transform:translateY(-4px);border-color:var(--border-hover);box-shadow:0 12px 32px rgba(0,0,0,.4)}
+.video-card .thumb{
+  width:100%;aspect-ratio:16/10;background:#111;position:relative;overflow:hidden;
+}
+.video-card .thumb img{width:100%;height:100%;object-fit:cover;transition:transform .4s var(--ease)}
+.video-card:hover .thumb img{transform:scale(1.05)}
+.video-card .thumb .duration{
+  position:absolute;bottom:6px;right:6px;
+  background:rgba(0,0,0,.8);padding:2px 8px;border-radius:4px;
+  font-family:var(--font-mono);font-size:11px;color:#fff;
+}
+.video-card .info{padding:12px 14px}
+.video-card .info .title{
+  font-size:13px;font-weight:500;line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.video-card .info .meta{
+  display:flex;gap:12px;margin-top:8px;font-size:11px;color:var(--text3);
+  font-family:var(--font-mono);
+}
+.video-card .info .bv{
+  font-family:var(--font-mono);font-size:11px;color:var(--cyan);
+  margin-top:6px;opacity:.7;
+}
+
+/* ═══════════════ DANMAKU ═══════════════ */
+.danmaku-flow{
+  max-height:320px;overflow-y:auto;padding:12px;
+  background:rgba(0,0,0,.2);border-radius:10px;border:1px solid var(--border);
+}
+.danmaku-flow .dm-item{
+  padding:5px 10px;margin:3px 0;border-radius:6px;font-size:13px;
+  background:rgba(251,114,153,.06);border-left:2px solid var(--pink-dim);
+  transition:background .2s;
+}
+.danmaku-flow .dm-item:hover{background:rgba(251,114,153,.12)}
+
+/* word cloud canvas */
+#wordcloud-wrap{
+  position:relative;width:100%;height:400px;
+  background:rgba(0,0,0,.25);border-radius:14px;border:1px solid var(--border);
+  overflow:hidden;
+}
+#wordcloud-canvas{width:100%;height:100%}
+
+/* bar chart */
+.bar-chart{display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto;padding-right:8px}
+.bar-row{display:flex;align-items:center;gap:10px}
+.bar-row .word{width:72px;text-align:right;font-size:13px;font-weight:500;flex-shrink:0}
+.bar-row .bar-bg{flex:1;height:26px;background:rgba(255,255,255,.04);border-radius:6px;overflow:hidden;position:relative}
+.bar-row .bar-fill{
+  height:100%;border-radius:6px;
+  background:linear-gradient(90deg,var(--pink),var(--cyan));
+  transition:width .6s var(--ease);display:flex;align-items:center;padding-left:8px;
+}
+.bar-row .bar-fill span{font-family:var(--font-mono);font-size:11px;color:#fff;opacity:.9}
+
+/* ═══════════════ MUSIC ═══════════════ */
+.song-list{display:flex;flex-direction:column;gap:4px;max-height:520px;overflow-y:auto}
+.song-item{
+  display:flex;align-items:center;gap:14px;padding:10px 16px;border-radius:10px;
+  cursor:pointer;transition:all .2s var(--ease);
+}
+.song-item:hover{background:rgba(251,114,153,.08)}
+.song-item.playing{background:var(--pink-dim);border:1px solid rgba(251,114,153,.2)}
+.song-item .rank{
+  font-family:var(--font-mono);font-size:13px;font-weight:700;
+  width:28px;text-align:center;color:var(--text3);
+}
+.song-item .rank.top3{color:var(--amber)}
+.song-item .name{flex:1;font-size:13px}
+.song-item .play-btn{
+  width:32px;height:32px;border-radius:50%;border:none;
+  background:var(--pink);color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:all .2s var(--ease);
+}
+.song-item:hover .play-btn{opacity:1}
+.player-bar{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:16px 20px;display:flex;align-items:center;gap:16px;margin-top:16px;
+}
+.player-bar .cover{
+  width:52px;height:52px;border-radius:10px;background:#222;overflow:hidden;flex-shrink:0;
+}
+.player-bar .cover img{width:100%;height:100%;object-fit:cover}
+.player-bar .track-info{flex:1;min-width:0}
+.player-bar .track-info .name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-bar .track-info .artist{font-size:12px;color:var(--text3)}
+.player-bar audio{flex:2;height:36px;max-width:400px}
+
+/* ═══════════════ DATA TABLE ═══════════════ */
+.file-list{display:flex;flex-direction:column;gap:6px}
+.file-item{
+  display:flex;align-items:center;gap:14px;padding:12px 16px;
+  background:var(--card);border:1px solid var(--border);border-radius:10px;
+  cursor:pointer;transition:all .2s var(--ease);
+}
+.file-item:hover{border-color:var(--border-hover);background:var(--card-hover)}
+.file-item .icon{font-size:20px}
+.file-item .fname{flex:1;font-size:13px;font-weight:500}
+.file-item .fsize{font-family:var(--font-mono);font-size:12px;color:var(--text3)}
+.data-preview{
+  max-height:400px;overflow-y:auto;padding:14px;
+  background:rgba(0,0,0,.2);border-radius:10px;border:1px solid var(--border);
+  font-family:var(--font-mono);font-size:12px;line-height:1.8;
+  margin-top:14px;
+}
+
+/* ═══════════════ LOADING ═══════════════ */
+.spinner{
+  display:inline-block;width:18px;height:18px;
+  border:2px solid var(--pink-dim);border-top-color:var(--pink);
+  border-radius:50%;animation:spin .6s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{
+  position:absolute;inset:0;background:rgba(7,7,14,.8);
+  display:flex;align-items:center;justify-content:center;
+  border-radius:inherit;z-index:10;backdrop-filter:blur(4px);
+}
+.loading-overlay .pulse{
+  width:48px;height:48px;border-radius:50%;
+  border:3px solid transparent;border-top-color:var(--pink);border-right-color:var(--cyan);
+  animation:spin .8s linear infinite;
+}
+
+/* ═══════════════ TOAST ═══════════════ */
+#toast-container{position:fixed;top:70px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px}
+.toast{
+  padding:12px 20px;border-radius:10px;font-size:13px;font-family:var(--font-ui);
+  animation:slideIn .3s var(--ease);min-width:240px;
+  backdrop-filter:blur(16px);border:1px solid var(--border);
+}
+.toast.success{background:rgba(105,240,174,.12);color:var(--green);border-color:rgba(105,240,174,.2)}
+.toast.error{background:rgba(255,82,82,.12);color:var(--red);border-color:rgba(255,82,82,.2)}
+.toast.info{background:rgba(0,229,255,.1);color:var(--cyan);border-color:rgba(0,229,255,.2)}
+@keyframes slideIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+
+/* ═══════════════ PAGINATION ═══════════════ */
+.pagination{display:flex;justify-content:center;gap:8px;margin-top:20px}
+.pagination button{
+  width:36px;height:36px;border-radius:8px;border:1px solid var(--border);
+  background:var(--card);color:var(--text2);cursor:pointer;
+  font-family:var(--font-mono);font-size:13px;
+  transition:all .2s var(--ease);
+}
+.pagination button:hover{border-color:var(--pink);color:var(--pink)}
+.pagination button.active{background:var(--pink);color:#fff;border-color:var(--pink)}
+.pagination button:disabled{opacity:.3;cursor:not-allowed}
+
+/* ═══════════════ LAYOUT HELPERS ═══════════════ */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+.mb-16{margin-bottom:16px}
+.mb-20{margin-bottom:20px}
+.mt-16{margin-top:16px}
+.gap-16{gap:16px}
+.flex{display:flex}
+.flex-col{flex-direction:column}
+.items-center{align-items:center}
+.empty-state{
+  text-align:center;padding:48px 20px;color:var(--text3);
+}
+.empty-state .icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty-state p{font-size:13px}
+
+/* ═══════════════ RESPONSIVE ═══════════════ */
+@media(max-width:900px){
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  .video-grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+}
+@media(max-width:640px){
+  :root{--sidebar-w:56px}
+  .main{padding:16px}
+  .header h1{font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ BG EFFECTS ═══════════ -->
+<div id="grid-bg"></div>
+<div id="glow-orb"></div>
+<div id="glow-orb2"></div>
+
+<!-- ═══════════ SIDEBAR ═══════════ -->
+<aside class="sidebar">
+  <div class="logo">B</div>
+  <nav>
+    <button class="active" onclick="switchSection('dashboard')" id="nav-dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span class="tip">总览</span>
+    </button>
+    <button onclick="switchSection('upvideo')" id="nav-upvideo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <span class="tip">UP主视频</span>
+    </button>
+    <button onclick="switchSection('danmaku')" id="nav-danmaku">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span class="tip">弹幕分析</span>
+    </button>
+    <button onclick="switchSection('data')" id="nav-data">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span class="tip">数据管理</span>
+    </button>
+  </nav>
+</aside>
+
+<!-- ═══════════ HEADER ═══════════ -->
+<header class="header">
+  <h1>BILIBILI TOOLKIT</h1>
+  <div class="sep"></div>
+  <span class="section-title" id="header-section">总览</span>
+  <div class="spacer"></div>
+  <span class="clock" id="clock"></span>
+</header>
+
+<!-- ═══════════ MAIN ═══════════ -->
+<main class="main">
+
+  <!-- ════════ DASHBOARD ════════ -->
+  <div class="section active" id="sec-dashboard">
+    <div class="stats-row" style="margin-bottom:24px">
+      <div class="stat-card"><div class="val" id="dash-csv-count">—</div><div class="label">CSV 数据文件</div></div>
+      <div class="stat-card"><div class="val">2</div><div class="label">功能模块</div></div>
+      <div class="stat-card"><div class="val">3</div><div class="label">API 接口</div></div>
+      <div class="stat-card"><div class="val" id="dash-status">●</div><div class="label">服务状态</div></div>
+    </div>
+    <div class="grid-3">
+      <div class="card" style="cursor:pointer" onclick="switchSection('upvideo')">
+        <div class="card-header">
+          <div class="icon" style="background:var(--pink-dim);color:var(--pink)">▶</div>
+          <h3>UP主视频抓取</h3>
+        </div>
+        <p style="font-size:13px;color:var(--text2);line-height:1.7">
+          输入UP主MID，通过WBI签名认证获取视频列表。支持分页浏览、排序筛选，一键复制BV号用于弹幕分析。
+        </p>
+      </div>
+      <div class="card" style="cursor:pointer" onclick="switchSection('danmaku')">
+        <div class="card-header">
+          <div class="icon" style="background:var(--cyan-dim);color:var(--cyan)">💬</div>
+          <h3>弹幕抓取与分析</h3>
+        </div>
+        <p style="font-size:13px;color:var(--text2);line-height:1.7">
+          输入BV号自动提取全部弹幕，结合jieba分词生成词频统计和词云可视化。支持导出CSV。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ UP VIDEO ════════ -->
+  <div class="section" id="sec-upvideo">
+    <div class="card mb-20">
+      <div class="card-header">
+        <div class="icon" style="background:var(--pink-dim);color:var(--pink)">▶</div>
+        <h3>UP主视频搜索</h3>
+      </div>
+      <div class="input-row">
+        <div class="input-wrap">
+          <label>UP主 MID</label>
+          <input type="text" id="up-mid" placeholder="输入UP主的数字ID，例如 336469068">
+        </div>
+        <select class="styled" id="up-order">
+          <option value="pubdate">最新发布</option>
+          <option value="click">最多播放</option>
+          <option value="stow">最多收藏</option>
+        </select>
+        <button class="btn btn-pink" onclick="searchUpVideos(1)" id="up-search-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          搜索
+        </button>
+      </div>
+    </div>
+    <div id="up-info-bar" style="display:none" class="card mb-16">
+      <div style="display:flex;align-items:center;gap:14px">
+        <img id="up-avatar" style="width:48px;height:48px;border-radius:50%;border:2px solid var(--pink)" src="">
+        <div>
+          <div id="up-name" style="font-weight:700;font-size:15px"></div>
+          <div id="up-sign" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
+        </div>
+        <div class="spacer"></div>
+        <div style="text-align:right">
+          <div id="up-fans" style="font-family:var(--font-mono);font-size:18px;color:var(--pink)"></div>
+          <div style="font-size:11px;color:var(--text3)">粉丝</div>
+        </div>
+      </div>
+    </div>
+    <div id="up-video-container">
+      <div class="empty-state"><div class="icon">🎬</div><p>输入UP主MID开始搜索</p></div>
+    </div>
+    <div class="pagination" id="up-pagination" style="display:none"></div>
+  </div>
+
+  <!-- ════════ DANMAKU ════════ -->
+  <div class="section" id="sec-danmaku">
+    <div class="card mb-20">
+      <div class="card-header">
+        <div class="icon" style="background:var(--cyan-dim);color:var(--cyan)">💬</div>
+        <h3>弹幕抓取</h3>
+      </div>
+      <div class="input-row">
+        <div class="input-wrap">
+          <label>BV号</label>
+          <input type="text" id="dm-bvid" placeholder="输入视频BV号，例如 BV1MN4y177PB">
+        </div>
+        <button class="btn btn-cyan" onclick="fetchDanmaku()" id="dm-fetch-btn">抓取弹幕</button>
+        <button class="btn btn-ghost" onclick="analyzeDanmaku()" id="dm-analyze-btn" disabled>分析词频</button>
+        <button class="btn btn-ghost" onclick="exportDanmaku()" id="dm-export-btn" disabled>导出CSV</button>
+      </div>
+    </div>
+    <div class="stats-row" id="dm-stats" style="display:none">
+      <div class="stat-card"><div class="val" id="dm-count">0</div><div class="label">弹幕总数</div></div>
+      <div class="stat-card"><div class="val" id="dm-words">0</div><div class="label">总词数</div></div>
+      <div class="stat-card"><div class="val" id="dm-unique">0</div><div class="label">独立词汇</div></div>
+    </div>
+    <div class="grid-2" id="dm-result-area" style="display:none">
+      <div class="card" style="position:relative">
+        <div class="card-header">
+          <h3>词云可视化</h3>
+          <span class="badge" style="background:var(--pink-dim);color:var(--pink)" id="wc-badge">等待分析</span>
+        </div>
+        <div id="wordcloud-wrap">
+          <canvas id="wordcloud-canvas"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3>词频排行</h3>
+        </div>
+        <div class="bar-chart" id="bar-chart"></div>
+      </div>
+    </div>
+    <div class="card mt-16" id="dm-list-card" style="display:none">
+      <div class="card-header">
+        <h3>弹幕列表</h3>
+        <span class="badge" style="background:var(--cyan-dim);color:var(--cyan)" id="dm-list-badge">0</span>
+      </div>
+      <div class="danmaku-flow" id="dm-flow"></div>
+    </div>
+  </div>
+
+  <!-- ════════ DATA ════════ -->
+  <div class="section" id="sec-data">
+    <div class="card mb-20">
+      <div class="card-header">
+        <div class="icon" style="background:rgba(105,240,174,.1);color:var(--green)">📄</div>
+        <h3>本地数据文件</h3>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost" onclick="loadCsvFiles()">刷新</button>
+      </div>
+      <div class="file-list" id="file-list">
+        <div class="empty-state"><div class="icon">📁</div><p>加载中...</p></div>
+      </div>
+    </div>
+    <div class="card" id="data-preview-card" style="display:none">
+      <div class="card-header">
+        <h3 id="preview-filename">预览</h3>
+        <span class="badge" style="background:var(--cyan-dim);color:var(--cyan)" id="preview-count">0 行</span>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost" onclick="closePreview()">关闭</button>
+      </div>
+      <div class="data-preview" id="data-preview"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ═══════════ TOAST ═══════════ -->
+<div id="toast-container"></div>
+
+<!-- ═══════════ WORDCLOUD LIB ═══════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
+
+<script>
+/* ═══════════════ STATE ═══════════════ */
+const S = {
+  section: 'dashboard',
+  danmaku: [],
+  upPage: 1,
+  upTotal: 0,
+  upMid: '',
+};
+
+const sectionNames = {
+  dashboard: '总览',
+  upvideo: 'UP主视频',
+  danmaku: '弹幕分析',
+  data: '数据管理',
+};
+
+/* ═══════════════ NAV ═══════════════ */
+function switchSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.sidebar nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  document.getElementById('nav-' + id).classList.add('active');
+  document.getElementById('header-section').textContent = sectionNames[id] || id;
+  S.section = id;
+  if (id === 'data') loadCsvFiles();
+}
+
+/* ═══════════════ CLOCK ═══════════════ */
+function updateClock() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('clock').textContent =
+    `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ═══════════════ TOAST ═══════════════ */
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3500);
+}
+
+/* ═══════════════ UTILS ═══════════════ */
+function fmtNum(n) {
+  if (n >= 10000) return (n / 10000).toFixed(1) + '万';
+  return String(n);
+}
+function fmtDuration(s) {
+  const m = Math.floor(s / 60), sec = s % 60;
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+async function api(url, opts = {}) {
+  const resp = await fetch(url, opts);
+  return resp.json();
+}
+
+/* ═══════════════ UP VIDEO ═══════════════ */
+async function searchUpVideos(page = 1) {
+  const mid = document.getElementById('up-mid').value.trim();
+  if (!mid) { toast('请输入UP主MID', 'error'); return; }
+  S.upMid = mid;
+  S.upPage = page;
+  const order = document.getElementById('up-order').value;
+  const btn = document.getElementById('up-search-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 搜索中';
+
+  try {
+    // Fetch UP info
+    if (page === 1) {
+      const info = await api(`/api/up/info?mid=${mid}`);
+      if (info.code === 0 && info.data) {
+        const c = info.data.card;
+        document.getElementById('up-avatar').src = c.face;
+        document.getElementById('up-name').textContent = c.name;
+        document.getElementById('up-sign').textContent = c.sign || '';
+        document.getElementById('up-fans').textContent = fmtNum(c.fans);
+        document.getElementById('up-info-bar').style.display = '';
+      }
+    }
+
+    const data = await api(`/api/up/videos?mid=${mid}&page=${page}&page_size=20&order=${order}`);
+    if (data.code !== 0) {
+      toast(data.message || '请求失败', 'error');
+      document.getElementById('up-video-container').innerHTML =
+        '<div class="empty-state"><div class="icon">⚠️</div><p>' + (data.message || '请求失败') + '</p></div>';
+      return;
+    }
+
+    const list = data.data?.list?.vlist || [];
+    S.upTotal = data.data?.page?.count || 0;
+    const totalPages = Math.ceil(S.upTotal / 20);
+
+    if (!list.length) {
+      document.getElementById('up-video-container').innerHTML =
+        '<div class="empty-state"><div class="icon">📭</div><p>没有找到视频</p></div>';
+      document.getElementById('up-pagination').style.display = 'none';
+      return;
+    }
+
+    let html = '<div class="video-grid">';
+    list.forEach(v => {
+      html += `
+        <div class="video-card" onclick="copyBV('${v.bvid}')">
+          <div class="thumb">
+            <img src="https://images.weserv.nl/?url=${encodeURIComponent(v.pic)}" loading="lazy" alt="">
+            <span class="duration">${v.length || ''}</span>
+          </div>
+          <div class="info">
+            <div class="title">${escHtml(v.title)}</div>
+            <div class="meta">
+              <span>▶ ${fmtNum(v.play)}</span>
+              <span>💬 ${fmtNum(v.comment)}</span>
+            </div>
+            <div class="bv">${v.bvid}</div>
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+    document.getElementById('up-video-container').innerHTML = html;
+
+    // Pagination
+    let pg = '<button ' + (page <= 1 ? 'disabled' : '') + ` onclick="searchUpVideos(${page-1})">‹</button>`;
+    const start = Math.max(1, page - 2), end = Math.min(totalPages, page + 2);
+    for (let i = start; i <= end; i++) {
+      pg += `<button class="${i===page?'active':''}" onclick="searchUpVideos(${i})">${i}</button>`;
+    }
+    pg += '<button ' + (page >= totalPages ? 'disabled' : '') + ` onclick="searchUpVideos(${page+1})">›</button>`;
+    document.getElementById('up-pagination').innerHTML = pg;
+    document.getElementById('up-pagination').style.display = 'flex';
+
+  } catch (e) {
+    toast('网络错误: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 搜索`;
+  }
+}
+
+function copyBV(bvid) {
+  navigator.clipboard.writeText(bvid).then(() => {
+    toast(`已复制 ${bvid}，可粘贴到弹幕分析`, 'success');
+  });
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+/* ═══════════════ DANMAKU ═══════════════ */
+async function fetchDanmaku() {
+  const bvid = document.getElementById('dm-bvid').value.trim();
+  if (!bvid) { toast('请输入BV号', 'error'); return; }
+
+  const btn = document.getElementById('dm-fetch-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 抓取中';
+
+  try {
+    const data = await api(`/api/danmaku/fetch?bvid=${bvid}`);
+    if (data.code !== 0) { toast(data.message || '抓取失败', 'error'); return; }
+
+    S.danmaku = data.data.danmaku;
+    document.getElementById('dm-count').textContent = data.data.count;
+    document.getElementById('dm-stats').style.display = '';
+    document.getElementById('dm-result-area').style.display = '';
+
+    // Render danmaku list
+    const flow = document.getElementById('dm-flow');
+    flow.innerHTML = S.danmaku.slice(0, 500).map(d =>
+      `<div class="dm-item">${escHtml(d)}</div>`
+    ).join('');
+    document.getElementById('dm-list-badge').textContent = S.danmaku.length;
+    document.getElementById('dm-list-card').style.display = '';
+    document.getElementById('dm-analyze-btn').disabled = false;
+    document.getElementById('dm-export-btn').disabled = false;
+    toast(`成功抓取 ${data.data.count} 条弹幕`, 'success');
+  } catch (e) {
+    toast('网络错误: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '抓取弹幕';
+  }
+}
+
+async function analyzeDanmaku() {
+  if (!S.danmaku.length) { toast('请先抓取弹幕', 'error'); return; }
+
+  const btn = document.getElementById('dm-analyze-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 分析中';
+
+  try {
+    const data = await api('/api/danmaku/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ danmaku: S.danmaku, top_n: 80 }),
+    });
+    if (data.code !== 0) { toast(data.message || '分析失败', 'error'); return; }
+
+    const { total_words, unique_words, top_words } = data.data;
+    document.getElementById('dm-words').textContent = fmtNum(total_words);
+    document.getElementById('dm-unique').textContent = fmtNum(unique_words);
+    document.getElementById('wc-badge').textContent = `${top_words.length} 词`;
+    document.getElementById('wc-badge').style.background = 'rgba(105,240,174,.12)';
+    document.getElementById('wc-badge').style.color = 'var(--green)';
+
+    renderWordCloud(top_words);
+    renderBarChart(top_words.slice(0, 25));
+    toast('词频分析完成', 'success');
+  } catch (e) {
+    toast('分析错误: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '分析词频';
+  }
+}
+
+function renderWordCloud(words) {
+  const canvas = document.getElementById('wordcloud-canvas');
+  const wrap = document.getElementById('wordcloud-wrap');
+  canvas.width = wrap.offsetWidth * 2;
+  canvas.height = wrap.offsetHeight * 2;
+  canvas.style.width = wrap.offsetWidth + 'px';
+  canvas.style.height = wrap.offsetHeight + 'px';
+
+  const maxCount = words[0]?.count || 1;
+  const colors = ['#FB7299','#FF85A8','#E94790','#D54DB8','#B95CE0','#8B6EFF','#5C8BFF','#2DA8FF','#00C5FF','#00E5FF'];
+
+  const list = words.map(w => [
+    w.word,
+    Math.max(8, Math.round((w.count / maxCount) * 72))
+  ]);
+
+  WordCloud(canvas, {
+    list: list,
+    gridSize: 8,
+    weightFactor: 1,
+    fontFamily: 'Noto Sans SC, sans-serif',
+    color: () => colors[Math.floor(Math.random() * colors.length)],
+    backgroundColor: 'transparent',
+    rotateRatio: 0.3,
+    rotationSteps: 3,
+    shuffle: true,
+    drawOutOfBound: false,
+  });
+}
+
+function renderBarChart(words) {
+  const maxCount = words[0]?.count || 1;
+  const container = document.getElementById('bar-chart');
+  container.innerHTML = words.map((w, i) => `
+    <div class="bar-row" style="animation:fadeUp .4s var(--ease) ${i * 30}ms both">
+      <div class="word">${escHtml(w.word)}</div>
+      <div class="bar-bg">
+        <div class="bar-fill" style="width:${(w.count/maxCount*100).toFixed(1)}%">
+          <span>${w.count}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function exportDanmaku() {
+  if (!S.danmaku.length) return;
+  const bvid = document.getElementById('dm-bvid').value.trim() || 'export';
+  try {
+    const data = await api('/api/danmaku/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ danmaku: S.danmaku, filename: `弹幕_${bvid}.csv` }),
+    });
+    toast(data.message || '导出完成', data.code === 0 ? 'success' : 'error');
+  } catch (e) {
+    toast('导出失败', 'error');
+  }
+}
+
+/* ═══════════════ DATA ═══════════════ */
+async function loadCsvFiles() {
+  try {
+    const data = await api('/api/csv/list');
+    if (data.code !== 0) return;
+
+    document.getElementById('dash-csv-count').textContent = data.data.length;
+    const container = document.getElementById('file-list');
+    if (!data.data.length) {
+      container.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>没有CSV文件</p></div>';
+      return;
+    }
+    container.innerHTML = data.data.map(f => `
+      <div class="file-item" onclick="previewFile('${f.path}', '${escHtml(f.name)}')">
+        <span class="icon">📄</span>
+        <span class="fname">${escHtml(f.name)}</span>
+        <span style="font-size:12px;color:var(--text3);font-family:var(--font-mono)">${f.path}</span>
+        <span class="fsize">${(f.size/1024).toFixed(1)} KB</span>
+      </div>
+    `).join('');
+  } catch (e) {
+    toast('加载文件列表失败', 'error');
+  }
+}
+
+async function previewFile(path, name) {
+  try {
+    const data = await api(`/api/csv/read?file=${encodeURIComponent(path)}`);
+    if (data.code !== 0) { toast(data.message, 'error'); return; }
+
+    document.getElementById('preview-filename').textContent = name;
+    document.getElementById('preview-count').textContent = data.count + ' 行';
+    document.getElementById('data-preview').innerHTML =
+      data.data.slice(0, 200).map((line, i) =>
+        `<div style="display:flex;gap:10px;padding:2px 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--text3);width:36px;text-align:right;flex-shrink:0">${i+1}</span>
+          <span>${escHtml(line)}</span>
+        </div>`
+      ).join('');
+    document.getElementById('data-preview-card').style.display = '';
+  } catch (e) {
+    toast('预览失败', 'error');
+  }
+}
+
+function closePreview() {
+  document.getElementById('data-preview-card').style.display = 'none';
+}
+
+/* ═══════════════ KEYBOARD ═══════════════ */
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const map = { '1': 'dashboard', '2': 'upvideo', '3': 'danmaku', '4': 'data' };
+  if (map[e.key]) switchSection(map[e.key]);
+});
+
+/* ═══════════════ INIT ═══════════════ */
+(async function init() {
+  document.getElementById('dash-status').style.color = 'var(--green)';
+  loadCsvFiles();
+})();
+</script>
+</body>
+</html>
